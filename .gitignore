@@ -1,0 +1,29 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+
+# Отчёты и данные
+output/*.json
+output/*.txt
+output/*.csv
+output/*.log
+
+# Логи
+logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
