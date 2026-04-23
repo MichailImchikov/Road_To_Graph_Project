@@ -1,0 +1,99 @@
+{
+  "node_id": "node-1",
+  "timestamp": "2024-03-30T10:30:00Z",
+  "total_cpu_load": 65.5,
+  "total_memory_usage_mb": 8192,
+  "num_cores": 8,
+  "num_active_tasks": 5,
+  "tasks": [
+    {
+      "task_id": "node-1_1234",
+      "task_name": "/usr/bin/python3 simulation.py",
+      "core_id": 0,
+      "cpu_load_percent": 85.2,
+      "memory_usage_mb": 512.5,
+      "instructions_per_sec": 2500000000,
+      "memory_bandwidth_mbps": 4096.2,
+      "adjacent_tasks": [
+        {
+          "task_id": "node-2_5678",
+          "bandwidth_mbps": 125.5,
+          "direction": "outbound"
+        },
+        {
+          "task_id": "node-1_2345",
+          "bandwidth_mbps": 50.2,
+          "direction": "outbound"
+        }
+      ],
+      "network_traffic_mbps": 175.7
+    },
+    {
+      "task_id": "node-1_2345",
+      "task_name": "/usr/bin/python3 data_processor.py",
+      "core_id": 1,
+      "cpu_load_percent": 72.8,
+      "memory_usage_mb": 1024.0,
+      "instructions_per_sec": 1800000000,
+      "memory_bandwidth_mbps": 3500.5,
+      "adjacent_tasks": [
+        {
+          "task_id": "node-1_1234",
+          "bandwidth_mbps": 50.2,
+          "direction": "inbound"
+        },
+        {
+          "task_id": "node-3_9012",
+          "bandwidth_mbps": 200.3,
+          "direction": "outbound"
+        }
+      ],
+      "network_traffic_mbps": 250.5
+    },
+    {
+      "task_id": "node-1_3456",
+      "task_name": "/usr/bin/database_server",
+      "core_id": 2,
+      "cpu_load_percent": 45.3,
+      "memory_usage_mb": 2048.0,
+      "instructions_per_sec": 800000000,
+      "memory_bandwidth_mbps": 5200.8,
+      "adjacent_tasks": [
+        {
+          "task_id": "node-1_4567",
+          "bandwidth_mbps": 15.0,
+          "direction": "inbound"
+        }
+      ],
+      "network_traffic_mbps": 15.0
+    },
+    {
+      "task_id": "node-1_4567",
+      "task_name": "/usr/bin/web_server",
+      "core_id": 3,
+      "cpu_load_percent": 30.5,
+      "memory_usage_mb": 256.0,
+      "instructions_per_sec": 1200000000,
+      "memory_bandwidth_mbps": 800.3,
+      "adjacent_tasks": [
+        {
+          "task_id": "node-1_3456",
+          "bandwidth_mbps": 15.0,
+          "direction": "outbound"
+        }
+      ],
+      "network_traffic_mbps": 15.0
+    },
+    {
+      "task_id": "node-1_5678",
+      "task_name": "/usr/bin/monitoring_agent",
+      "core_id": 4,
+      "cpu_load_percent": 5.2,
+      "memory_usage_mb": 64.0,
+      "instructions_per_sec": 50000000,
+      "memory_bandwidth_mbps": 100.0,
+      "adjacent_tasks": [],
+      "network_traffic_mbps": 0.0
+    }
+  ]
+}
