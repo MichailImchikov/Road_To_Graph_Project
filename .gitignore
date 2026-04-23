@@ -24,6 +24,12 @@ output/*.log
 # Логи
 logs/*.log
 
+
+# Benchmark temporary files
+benchmark/node_*.py
+benchmark/*.gr
+benchmark/__pycache__/
+
 # OS
 .DS_Store
 Thumbs.db

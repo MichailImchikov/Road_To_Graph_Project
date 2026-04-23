@@ -3,3 +3,4 @@ flask-cors>=3.0.0
 requests>=2.25.0
 numpy>=1.20.0
 networkx>=2.6.0
+pyrgg>=1.0.0

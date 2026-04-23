@@ -1,0 +1,199 @@
+{
+  "report_type": "system_profiling",
+  "timestamp": "2024-03-30T15:45:00.123456",
+  "total_nodes": 3,
+  "total_tasks": 8,
+  "total_cpu_load_avg": 52.4,
+  "total_memory_usage_mb": 14580.5,
+  "nodes": [
+    {
+      "node_id": "node-1",
+      "last_update": "2024-03-30T15:44:55.000000",
+      "total_cpu_load": 65.2,
+      "total_memory_usage_mb": 5120.5,
+      "num_cores": 8,
+      "num_active_tasks": 3,
+      "tasks": [
+        {
+          "task_id": "node-1_1024",
+          "task_name": "/usr/bin/python3 simulation_core.py",
+          "core_id": 0,
+          "cpu_load_percent": 92.5,
+          "memory_usage_mb": 1024.0,
+          "instructions_per_sec": 2850000000,
+          "memory_bandwidth_mbps": 4500.5,
+          "adjacent_tasks": [
+            {
+              "task_id": "node-2_2048",
+              "bandwidth_mbps": 125.5,
+              "direction": "outbound"
+            },
+            {
+              "task_id": "node-1_1025",
+              "bandwidth_mbps": 45.2,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 170.7
+        },
+        {
+          "task_id": "node-1_1025",
+          "task_name": "/usr/bin/python3 data_preprocessor.py",
+          "core_id": 1,
+          "cpu_load_percent": 45.8,
+          "memory_usage_mb": 512.5,
+          "instructions_per_sec": 1200000000,
+          "memory_bandwidth_mbps": 2100.0,
+          "adjacent_tasks": [
+            {
+              "task_id": "node-1_1024",
+              "bandwidth_mbps": 45.2,
+              "direction": "inbound"
+            }
+          ],
+          "network_traffic_mbps": 45.2
+        },
+        {
+          "task_id": "node-1_1026",
+          "task_name": "/usr/bin/monitoring_agent",
+          "core_id": 2,
+          "cpu_load_percent": 5.2,
+          "memory_usage_mb": 64.0,
+          "instructions_per_sec": 50000000,
+          "memory_bandwidth_mbps": 100.0,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        }
+      ]
+    },
+    {
+      "node_id": "node-2",
+      "last_update": "2024-03-30T15:44:56.000000",
+      "total_cpu_load": 48.5,
+      "total_memory_usage_mb": 6144.0,
+      "num_cores": 8,
+      "num_active_tasks": 3,
+      "tasks": [
+        {
+          "task_id": "node-2_2048",
+          "task_name": "/usr/bin/python3 neural_network_train.py",
+          "core_id": 0,
+          "cpu_load_percent": 88.0,
+          "memory_usage_mb": 4096.0,
+          "instructions_per_sec": 3100000000,
+          "memory_bandwidth_mbps": 5200.8,
+          "adjacent_tasks": [
+            {
+              "task_id": "node-1_1024",
+              "bandwidth_mbps": 125.5,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "node-3_3072",
+              "bandwidth_mbps": 85.0,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 210.5
+        },
+        {
+          "task_id": "node-2_2049",
+          "task_name": "/usr/bin/database_writer",
+          "core_id": 1,
+          "cpu_load_percent": 15.0,
+          "memory_usage_mb": 256.0,
+          "instructions_per_sec": 400000000,
+          "memory_bandwidth_mbps": 800.0,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "node-2_2050",
+          "task_name": "/usr/bin/log_rotator",
+          "core_id": 2,
+          "cpu_load_percent": 2.5,
+          "memory_usage_mb": 32.0,
+          "instructions_per_sec": 10000000,
+          "memory_bandwidth_mbps": 50.0,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        }
+      ]
+    },
+    {
+      "node_id": "node-3",
+      "last_update": "2024-03-30T15:44:57.000000",
+      "total_cpu_load": 43.5,
+      "total_memory_usage_mb": 3316.0,
+      "num_cores": 8,
+      "num_active_tasks": 2,
+      "tasks": [
+        {
+          "task_id": "node-3_3072",
+          "task_name": "/usr/bin/python3 result_aggregator.py",
+          "core_id": 0,
+          "cpu_load_percent": 65.0,
+          "memory_usage_mb": 2048.0,
+          "instructions_per_sec": 1800000000,
+          "memory_bandwidth_mbps": 3200.5,
+          "adjacent_tasks": [
+            {
+              "task_id": "node-2_2048",
+              "bandwidth_mbps": 85.0,
+              "direction": "inbound"
+            }
+          ],
+          "network_traffic_mbps": 85.0
+        },
+        {
+          "task_id": "node-3_3073",
+          "task_name": "/usr/bin/web_dashboard",
+          "core_id": 1,
+          "cpu_load_percent": 22.0,
+          "memory_usage_mb": 128.0,
+          "instructions_per_sec": 600000000,
+          "memory_bandwidth_mbps": 400.0,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_nodes": 3,
+    "total_tasks": 8,
+    "avg_cpu_load_percent": 52.4,
+    "total_memory_usage_mb": 14580.5,
+    "avg_tasks_per_node": 2.67,
+    "high_load_tasks": [
+      {
+        "task_id": "node-1_1024",
+        "node_id": "node-1",
+        "cpu_load_percent": 92.5,
+        "task_name": "/usr/bin/python3 simulation_core.py"
+      },
+      {
+        "task_id": "node-2_2048",
+        "node_id": "node-2",
+        "cpu_load_percent": 88.0,
+        "task_name": "/usr/bin/python3 neural_network_train.py"
+      }
+    ],
+    "high_memory_tasks": [
+      {
+        "task_id": "node-2_2048",
+        "node_id": "node-2",
+        "memory_usage_mb": 4096.0,
+        "task_name": "/usr/bin/python3 neural_network_train.py"
+      }
+    ],
+    "high_network_tasks": [
+      {
+        "task_id": "node-2_2048",
+        "node_id": "node-2",
+        "network_traffic_mbps": 210.5,
+        "adjacent_count": 2
+      }
+    ]
+  }
+}
