@@ -15,7 +15,8 @@ class SystemConfig:
     LIKWID_GROUP: str = 'INST'
     MEASUREMENT_DURATION: int = 5
     NETWORK_INTERFACE: str = os.getenv('NETWORK_INTERFACE', 'eth0')
-    OUTPUT_DIR: str = './output'
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
     LOG_LEVEL: str = 'INFO'
     NUM_CORES: int = os.cpu_count() or 4
 
