@@ -14,16 +14,21 @@ from dataclasses import dataclass, asdict, field
 import requests
 import logging
 
-# Локальный импорт конфига (или передавать как параметр)
+# ROS 2 импорты для мониторинга трафика
+import rclpy
+from rclpy.node import Node
+from agent.network_monitor import ROS2TrafficMonitor
+
+# Локальный импорт конфига
 try:
     from config import config
 except ImportError:
-    # Fallback если config.py не в PATH
     class DummyConfig:
         NODE_ID = os.getenv('NODE_ID', socket.gethostname())
         COLLECTOR_HOST = os.getenv('COLLECTOR_HOST', 'localhost')
         COLLECTOR_PORT = int(os.getenv('COLLECTOR_PORT', '8080'))
         PROFILING_INTERVAL = 10
+        NETWORK_INTERVAL = 5
         LIKWID_GROUP = 'INST'
         MEASUREMENT_DURATION = 5
         CPU_THRESHOLD_PERCENT = 5.0
@@ -106,7 +111,7 @@ class LikwidProfiler:
                 'likwid-perfctr',
                 '-C', str(core_id),
                 '-g', self.group,
-                '-t', str(self.duration * 1000),  # мс
+                '-t', str(self.duration * 1000),
             ]
             
             if pid:
@@ -137,10 +142,8 @@ class LikwidProfiler:
         }
         
         for line in output.split('\n'):
-            # Счётчик инструкций
             if 'INSTR_RETIRED' in line:
                 try:
-                    # LIKWID выводит число в конце строки (может быть в эксп. форме)
                     parts = line.split()
                     if parts:
                         val = parts[-1].replace(',', '.')
@@ -148,7 +151,6 @@ class LikwidProfiler:
                 except (ValueError, IndexError):
                     pass
             
-            # Такты процессора
             elif 'CPU_CLK_UNHALTED_THREAD' in line:
                 try:
                     parts = line.split()
@@ -158,17 +160,14 @@ class LikwidProfiler:
                 except (ValueError, IndexError):
                     pass
             
-            # Пропускная способность памяти (для группы MEM)
             elif 'Memory bandwidth' in line or 'MEM' in line.upper():
                 try:
-                    # Ищем число с единицами измерения
                     match = re.search(r'([\d.]+)\s*(?:MB/s|MBps|MBit/s)?', line, re.I)
                     if match:
                         metrics['memory_bandwidth_mbps'] = float(match.group(1))
                 except (ValueError, AttributeError):
                     pass
         
-        # Расчёт инструкций в секунду (IPS)
         if self.duration > 0 and metrics['instructions'] > 0:
             metrics['instructions_per_sec'] = metrics['instructions'] / self.duration
         
@@ -199,9 +198,9 @@ class ProcessMonitor:
                 capture_output=True, text=True, timeout=5
             )
             
-            lines = result.stdout.split('\n')[1:]  # Пропускаем заголовок
+            lines = result.stdout.split('\n')[1:]
             
-            for line in lines[:50]:  # Топ-50 процессов
+            for line in lines[:50]:
                 if not line.strip():
                     continue
                 
@@ -213,8 +212,8 @@ class ProcessMonitor:
                             'user': parts[0],
                             'cpu_percent': float(parts[2]),
                             'memory_percent': float(parts[3]),
-                            'memory_rss_mb': float(parts[4]) / 1024,  # KB → MB
-                            'command': parts[10][:100]  # Обрезаем длинные команды
+                            'memory_rss_mb': float(parts[4]) / 1024,
+                            'command': parts[10][:100]
                         })
                     except (ValueError, IndexError):
                         continue
@@ -261,7 +260,7 @@ class ProcessMonitor:
                 parts = line.split()
                 if len(parts) >= 2:
                     key = parts[0].rstrip(':')
-                    value = float(parts[1]) / 1024  # KB → MB
+                    value = float(parts[1]) / 1024
                     mem_info[key] = value
             
             total = mem_info.get('MemTotal', 0)
@@ -288,19 +287,30 @@ class ProfilingAgent:
         self.process_monitor = ProcessMonitor()
         self.collector_url = f"http://{config.COLLECTOR_HOST}:{config.COLLECTOR_PORT}/metrics"
         self.running = False
+        
+        # Инициализация ROS 2 и сетевого монитора
+        self.network_monitor = None
+        self._init_ros_network_monitor()
+    
+    def _init_ros_network_monitor(self):
+        """Инициализация ROS 2 монитора трафика"""
+        try:
+            if not rclpy.ok():
+                rclpy.init()
+            self.network_monitor = ROS2TrafficMonitor(self.node_id)
+            logger.info("ROS 2 network monitor initialized")
+        except Exception as e:
+            logger.warning(f"Не удалось инициализировать ROS network monitor: {e}")
+            self.network_monitor = None
     
     def initialize(self) -> bool:
         """Инициализация агента"""
         logger.info(f"Инициализация агента на узле {self.node_id}")
         
-        # Проверка LIKWID
         if not self.likwid.check_likwid_available():
             logger.warning("LIKWID недоступен, будем использовать только ps")
         
-        # Загрузка модуля MSR
         self.likwid.load_msr_module()
-        
-        # Создание директории для вывода
         os.makedirs(config.OUTPUT_DIR, exist_ok=True)
         
         return True
@@ -309,28 +319,18 @@ class ProfilingAgent:
         """Сбор метрик по всему узлу"""
         timestamp = datetime.utcnow().isoformat()
         
-        # Загрузка по ядрам
         cpu_loads = self.process_monitor.get_cpu_load_per_core()
-        
-        # Использование памяти узлом
         mem_usage = self.process_monitor.get_memory_usage()
-        
-        # Процессы
         processes = self.process_monitor.get_all_processes()
         
-        # Формирование задач
         tasks = []
         core_idx = 0
         
         for proc in processes:
-            # Пропускаем процессы с низкой загрузкой
             if proc['cpu_percent'] < config.CPU_THRESHOLD_PERCENT:
                 continue
             
-            # Распределяем по ядрам (циклически, для примера)
             core_id = core_idx % config.NUM_CORES
-            
-            # Замер LIKWID для этого ядра/процесса
             likwid_metrics = self.likwid.measure_core(core_id, proc['pid'])
             
             task = TaskMetrics(
@@ -349,7 +349,45 @@ class ProfilingAgent:
             tasks.append(task)
             core_idx += 1
         
-        # Общая загрузка CPU
+        # === ИНТЕГРАЦИЯ СЕТЕВЫХ МЕТРИК ===
+        if self.network_monitor:
+            try:
+                rclpy.spin_once(self.network_monitor, timeout_sec=0.1)
+                
+                traffic_stats = self.network_monitor.get_traffic_stats(
+                    duration=config.PROFILING_INTERVAL
+                )
+                
+                task_map = {task.task_id: task for task in tasks}
+                
+                for topic_name, stats in traffic_stats.items():
+                    sender = stats['sender']
+                    receiver = stats['receiver']
+                    bandwidth = stats['bandwidth_mbps']
+                    
+                    if bandwidth < config.NETWORK_THRESHOLD_MBPS:
+                        continue
+                    
+                    if sender in task_map:
+                        task_map[sender].adjacent_tasks.append({
+                            'task_id': receiver,
+                            'bandwidth_mbps': bandwidth,
+                            'direction': 'outbound'
+                        })
+                        task_map[sender].network_traffic_mbps += bandwidth
+                    
+                    if receiver in task_map:
+                        task_map[receiver].adjacent_tasks.append({
+                            'task_id': sender,
+                            'bandwidth_mbps': bandwidth,
+                            'direction': 'inbound'
+                        })
+                        task_map[receiver].network_traffic_mbps += bandwidth
+                        
+            except Exception as e:
+                logger.debug(f"Ошибка сбора сетевых метрик: {e}")
+        # === КОНЕЦ ИНТЕГРАЦИИ ===
+        
         total_cpu_load = sum(cpu_loads) / len(cpu_loads) if cpu_loads else 0
         
         report = NodeReport(
@@ -403,14 +441,11 @@ class ProfilingAgent:
         
         while self.running:
             try:
-                # Сбор метрик
                 report = self.collect_node_metrics()
                 
-                # Отправка
                 if not self.send_to_collector(report):
                     logger.warning("Не удалось отправить метрики")
                 
-                # Логирование
                 logger.info(
                     f"Узел {self.node_id}: "
                     f"{report.num_active_tasks} задач, "
@@ -429,6 +464,16 @@ class ProfilingAgent:
     def stop(self):
         """Остановка агента"""
         self.running = False
+        
+        # Очистка ROS 2 ресурсов
+        if self.network_monitor:
+            try:
+                self.network_monitor.destroy()
+            except:
+                pass
+        if rclpy.ok():
+            rclpy.shutdown()
+        
         logger.info("Агент остановлен")
 
 

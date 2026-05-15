@@ -36,7 +36,6 @@ case $DISTRO in
     ubuntu|debian|linuxmint)
         sudo apt install -y \
             likwid \
-            tshark \
             net-tools \
             iproute2 \
             python3 \
@@ -49,7 +48,6 @@ case $DISTRO in
     centos|rhel|fedora)
         sudo yum install -y \
             likwid \
-            wireshark-cli \
             net-tools \
             iproute \
             python3 \
@@ -60,7 +58,7 @@ case $DISTRO in
         ;;
     *)
         echo "⚠️  Неизвестный дистрибутив, попробуйте вручную:"
-        echo "   sudo apt install likwid tshark python3-pip"
+        echo "   sudo apt install likwid python3-pip"
         ;;
 esac
 
@@ -92,21 +90,7 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# 4. Настройка tshark
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "⚙️  Настройка tshark..."
-
-# Права для захвата трафика без root
-if command -v tshark > /dev/null 2>&1; then
-    sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/tshark 2>/dev/null || true
-    echo "✅ tshark настроен для захвата трафика"
-else
-    echo "⚠️  tshark не найден, сетевой мониторинг будет ограничен"
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# 5. Установка Python зависимостей
+# 4. Установка Python зависимостей
 # ═══════════════════════════════════════════════════════════════
 echo ""
 echo "🐍 Установка Python зависимостей..."
@@ -130,7 +114,7 @@ pip3 install -r requirements.txt
 echo "✅ Python зависимости установлены"
 
 # ═══════════════════════════════════════════════════════════════
-# 6. Создание директорий
+# 5. Создание директорий
 # ═══════════════════════════════════════════════════════════════
 echo ""
 echo "📁 Создание директорий..."
@@ -143,7 +127,7 @@ touch logs/.gitkeep
 echo "✅ Директории созданы"
 
 # ═══════════════════════════════════════════════════════════════
-# 7. Итоговая проверка
+# 6. Итоговая проверка
 # ═══════════════════════════════════════════════════════════════
 echo ""
 echo "╔════════════════════════════════════════════════════════╗"
@@ -161,7 +145,6 @@ check_command() {
 check_command python3
 check_command pip3
 check_command likwid-topology
-check_command tshark
 check_command curl
 
 echo ""

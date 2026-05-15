@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# agent/network_monitor.py - Мониторинг сетевого трафика между задачами
+# agent/network_monitor.py - Мониторинг сетевого трафика ROS 2 топиков
 
-import subprocess
-import json
-import re
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import ByteMultiArray, String
 import time
 import socket
 import os
@@ -12,6 +13,8 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict, field
 import requests
 import logging
+import threading
+import re
 
 # Локальный импорт конфига
 try:
@@ -22,8 +25,6 @@ except ImportError:
         COLLECTOR_HOST = os.getenv('COLLECTOR_HOST', 'localhost')
         COLLECTOR_PORT = int(os.getenv('COLLECTOR_PORT', '8080'))
         NETWORK_INTERVAL = 5
-        NETWORK_INTERFACE = os.getenv('NETWORK_INTERFACE', 'eth0')
-        CAPTURE_FILTER = 'tcp or udp'
         NETWORK_THRESHOLD_MBPS = 0.1
         OUTPUT_DIR = './output'
         LOG_LEVEL = 'INFO'
@@ -65,137 +66,29 @@ class NetworkReport:
     num_flows: int
 
 
-class TSharkMonitor:
-    """Обёртка над tshark для мониторинга сети"""
+class ROS2TrafficMonitor(Node):
+    """Мониторинг трафика ROS 2 топиков"""
     
-    def __init__(self, interface: str = None, capture_filter: str = None, duration: int = None):
-        self.interface = interface or config.NETWORK_INTERFACE
-        self.capture_filter = capture_filter or config.CAPTURE_FILTER
-        self.capture_duration = duration or config.NETWORK_INTERVAL
-    
-    def check_tshark_available(self) -> bool:
-        """Проверка доступности tshark"""
-        try:
-            result = subprocess.run(
-                ['tshark', '--version'], 
-                capture_output=True, text=True, timeout=5
-            )
-            return result.returncode == 0
-        except Exception as e:
-            logger.warning(f"tshark недоступен: {e}")
-            return False
-    
-    def capture_traffic(self) -> str:
-        """
-        Захват сетевого трафика
-        Возвращает вывод tshark в текстовом формате
-        """
-        try:
-            cmd = [
-                'sudo', 'tshark',
-                '-i', self.interface,
-                '-f', self.capture_filter,
-                '-a', f'duration:{self.capture_duration}',
-                '-q', '-z', 'conv,ip',
-                '-n'  # Не разрешать имена (быстрее)
-            ]
-            
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=self.capture_duration + 10
-            )
-            return result.stdout
-        
-        except subprocess.TimeoutExpired:
-            logger.error("Таймаут захвата трафика")
-            return ""
-        except Exception as e:
-            logger.error(f"Ошибка захвата трафика: {e}")
-            return ""
-    
-    def parse_conversations(self, output: str) -> List[Dict]:
-        """
-        Парсинг разговоров между IP-адресами
-        Формат вывода tshark -z conv,ip:
-        |192.168.1.1|<->|192.168.1.2|TCP|100|200|300|...
-        """
-        conversations = []
-        
-        for line in output.split('\n'):
-            if '|' not in line or '<->' not in line:
-                continue
-            
-            parts = line.split('|')
-            if len(parts) >= 8:
-                try:
-                    conv = {
-                        'ip1': parts[1],
-                        'ip2': parts[3],
-                        'protocol': parts[4],
-                        'bytes_1_to_2': int(parts[5]) if parts[5].isdigit() else 0,
-                        'bytes_2_to_1': int(parts[6]) if parts[6].isdigit() else 0,
-                        'packets_1_to_2': int(parts[7]) if parts[7].isdigit() else 0,
-                    }
-                    conv['total_bytes'] = conv['bytes_1_to_2'] + conv['bytes_2_to_1']
-                    conversations.append(conv)
-                except (ValueError, IndexError) as e:
-                    logger.debug(f"Ошибка парсинга строки: {e}")
-        
-        return conversations
-    
-    def get_port_mappings(self) -> Dict[str, Dict[int, str]]:
-        """
-        Получение соответствия портов и процессов
-        Использует ss или netstat
-        """
-        port_map = {}
-        
-        try:
-            result = subprocess.run(
-                ['sudo', 'ss', '-tlnp'],
-                capture_output=True, text=True, timeout=5
-            )
-            
-            for line in result.stdout.split('\n'):
-                if 'LISTEN' in line:
-                    parts = line.split()
-                    if len(parts) >= 6:
-                        addr_port = parts[4]
-                        if ':' in addr_port:
-                            ip, port_str = addr_port.rsplit(':', 1)
-                            try:
-                                port = int(port_str)
-                                proc_info = parts[-1]
-                                if 'users:' in proc_info:
-                                    match = re.search(r'\("([^"]+)"', proc_info)
-                                    if match:
-                                        if ip not in port_map:
-                                            port_map[ip] = {}
-                                        port_map[ip][port] = match.group(1)
-                            except ValueError:
-                                continue
-        except Exception as e:
-            logger.error(f"Ошибка получения маппинга портов: {e}")
-        
-        return port_map
-    
-    def calculate_bandwidth(self, bytes_total: int, duration: float) -> float:
-        """Расчёт пропускной способности в Мбит/с"""
-        if duration <= 0:
-            return 0.0
-        
-        bits = bytes_total * 8
-        mbps = (bits / duration) / 1_000_000
-        return round(mbps, 2)
-
-
-class NetworkProfiler:
-    """Профайлер сетевого трафика"""
-    
-    def __init__(self):
-        self.node_id = config.NODE_ID
+    def __init__(self, node_id: str):
+        super().__init__('ros2_traffic_monitor')
+        self.node_id = node_id
         self.node_ip = self._get_node_ip()
-        self.tshark = TSharkMonitor()
-        self.collector_url = f"http://{config.COLLECTOR_HOST}:{config.COLLECTOR_PORT}/network"
+        
+        # Статистика по топикам
+        self.topic_stats: Dict[str, Dict] = {}
+        self.subscriptions = {}
+        
+        # Блокировка для потокобезопасности
+        self.lock = threading.Lock()
+        
+        # Время начала измерения
+        self.start_time = time.time()
+        
+        # Подписка на все топики с шаблоном light_topic_*
+        self._discover_and_subscribe_topics()
+        
+        # Периодическая очистка статистики
+        self.create_timer(10.0, self._clear_old_stats)
     
     def _get_node_ip(self) -> str:
         """Получение IP адреса текущего узла"""
@@ -208,75 +101,228 @@ class NetworkProfiler:
         except:
             return socket.gethostbyname(socket.gethostname())
     
-    def identify_remote_node(self, ip: str) -> str:
-        """
-        Определение удалённого узла по IP
-        В продакшене нужна таблица соответствия IP -> node_id
-        """
-        if ip == self.node_ip:
-            return self.node_id
-        else:
-            # Эвристика: если IP вида 192.168.1.X, то node-X
-            match = re.search(r'\.(\d+)$', ip)
-            if match:
-                return f"node-{match.group(1)}"
-            return f"node-{ip.replace('.', '-')}"
+    def _discover_and_subscribe_topics(self):
+        """Обнаружение и подписка на топики"""
+        try:
+            # Получаем список топиков
+            topic_names_and_types = self.get_topic_names_and_types()
+            
+            for topic_name, topic_types in topic_names_and_types:
+                # Подписываемся только на топики light_topic_*
+                if 'light_topic' in topic_name:
+                    self._subscribe_to_topic(topic_name, topic_types[0])
+            
+            logger.info(f"Подписался на {len(self.subscriptions)} ROS 2 топиков")
+            
+        except Exception as e:
+            logger.error(f"Ошибка обнаружения топиков: {e}")
     
-    def collect_network_metrics(self) -> NetworkReport:
+    def _subscribe_to_topic(self, topic_name: str, topic_type: str):
+        """Подписка на конкретный топик"""
+        try:
+            # Определяем тип сообщения и подписываемся
+            if topic_type == 'std_msgs/msg/ByteMultiArray':
+                qos = QoSProfile(
+                    depth=10,
+                    reliability=ReliabilityPolicy.BEST_EFFORT
+                )
+                self.subscriptions[topic_name] = self.create_subscription(
+                    ByteMultiArray,
+                    topic_name,
+                    lambda msg, tn=topic_name: self._callback(msg, tn),
+                    qos
+                )
+            elif topic_type == 'std_msgs/msg/String':
+                qos = QoSProfile(
+                    depth=10,
+                    reliability=ReliabilityPolicy.BEST_EFFORT
+                )
+                self.subscriptions[topic_name] = self.create_subscription(
+                    String,
+                    topic_name,
+                    lambda msg, tn=topic_name: self._callback(msg, tn),
+                    qos
+                )
+            else:
+                logger.debug(f"Неподдерживаемый тип топика {topic_type} для {topic_name}")
+                
+        except Exception as e:
+            logger.error(f"Ошибка подписки на {topic_name}: {e}")
+    
+    def _callback(self, msg, topic_name: str):
+        """Обработка входящего сообщения"""
+        try:
+            # Определяем размер сообщения
+            if hasattr(msg, 'data'):
+                if isinstance(msg.data, (bytes, bytearray)):
+                    msg_size = len(msg.data)
+                elif isinstance(msg.data, str):
+                    msg_size = len(msg.data.encode('utf-8'))
+                elif isinstance(msg.data, list):
+                    msg_size = len(msg.data)
+                else:
+                    msg_size = 0
+            else:
+                msg_size = 0
+            
+            # Обновляем статистику
+            with self.lock:
+                if topic_name not in self.topic_stats:
+                    self.topic_stats[topic_name] = {
+                        'bytes_received': 0,
+                        'messages_received': 0,
+                        'last_update': time.time()
+                    }
+                
+                self.topic_stats[topic_name]['bytes_received'] += msg_size
+                self.topic_stats[topic_name]['messages_received'] += 1
+                self.topic_stats[topic_name]['last_update'] = time.time()
+                
+        except Exception as e:
+            logger.debug(f"Ошибка в callback для {topic_name}: {e}")
+    
+    def _clear_old_stats(self):
+        """Очистка устаревшей статистики"""
+        current_time = time.time()
+        with self.lock:
+            # Удаляем топики, которые не обновлялись более 30 секунд
+            stale_topics = [
+                topic for topic, stats in self.topic_stats.items()
+                if current_time - stats['last_update'] > 30
+            ]
+            for topic in stale_topics:
+                del self.topic_stats[topic]
+    
+    def get_traffic_stats(self, duration: float = None) -> Dict[str, Dict]:
+        """Получение статистики трафика"""
+        if duration is None:
+            duration = self.get_clock().now().seconds - self.start_time
+        
+        stats = {}
+        with self.lock:
+            for topic_name, data in self.topic_stats.items():
+                # Извлекаем информацию о получателе из имени топика
+                # Формат: /light_topic_X_to_Y
+                match = re.search(r'light_topic_(\d+)_to_(\d+)', topic_name)
+                if match:
+                    sender_id = match.group(1)
+                    receiver_id = match.group(2)
+                else:
+                    sender_id = "unknown"
+                    receiver_id = "unknown"
+                
+                # Рассчитываем пропускную способность
+                bytes_total = data['bytes_received']
+                msgs_total = data['messages_received']
+                
+                bandwidth_mbps = 0.0
+                if duration > 0 and bytes_total > 0:
+                    bits = bytes_total * 8
+                    bandwidth_mbps = (bits / duration) / 1_000_000
+                
+                stats[topic_name] = {
+                    'sender': f"light_node_{sender_id}",
+                    'receiver': f"light_node_{receiver_id}",
+                    'bytes': bytes_total,
+                    'messages': msgs_total,
+                    'bandwidth_mbps': round(bandwidth_mbps, 4),
+                    'duration': duration
+                }
+        
+        return stats
+    
+    def destroy(self):
+        """Очистка ресурсов"""
+        for sub in self.subscriptions.values():
+            self.destroy_subscription(sub)
+        self.destroy_node()
+
+
+class NetworkProfiler:
+    """Профайлер сетевого трафика"""
+    
+    def __init__(self):
+        self.node_id = config.NODE_ID
+        self.node_ip = self._get_node_ip()
+        self.collector_url = f"http://{config.COLLECTOR_HOST}:{config.COLLECTOR_PORT}/network"
+        self.ros_monitor = None
+    
+    def _get_node_ip(self) -> str:
+        """Получение IP адреса текущего узла"""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except:
+            return socket.gethostbyname(socket.gethostname())
+    
+    def initialize_ros_monitor(self):
+        """Инициализация ROS 2 монитора"""
+        try:
+            if not rclpy.ok():
+                rclpy.init()
+            
+            self.ros_monitor = ROS2TrafficMonitor(self.node_id)
+            logger.info("ROS 2 traffic monitor initialized")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Ошибка инициализации ROS монитора: {e}")
+            return False
+    
+    def collect_network_metrics(self) -> Optional[NetworkReport]:
         """Сбор сетевых метрик"""
         timestamp = datetime.utcnow().isoformat()
         
-        # Захват трафика
-        logger.info("Захват сетевого трафика...")
-        capture_output = self.tshark.capture_traffic()
+        if not self.ros_monitor:
+            logger.warning("ROS монитор не инициализирован")
+            return None
         
-        # Парсинг разговоров
-        conversations = self.tshark.parse_conversations(capture_output)
+        # Обрабатываем события ROS для обновления статистики
+        rclpy.spin_once(self.ros_monitor, timeout_sec=0.1)
         
-        # Получение маппинга портов
-        port_map = self.tshark.get_port_mappings()
+        # Получаем статистику
+        traffic_stats = self.ros_monitor.get_traffic_stats(
+            duration=config.NETWORK_INTERVAL
+        )
         
-        # Формирование потоков
+        # Формируем потоки
         flows = []
         total_bandwidth = 0.0
         total_packets = 0
         
-        for conv in conversations:
-            # Пропускаем локальный трафик ниже порога
-            if conv['total_bytes'] < 1000:  # 1KB порог
+        for topic_name, stats in traffic_stats.items():
+            # Пропускаем потоки с нулевым трафиком
+            if stats['bytes'] == 0:
                 continue
             
-            bandwidth = self.tshark.calculate_bandwidth(
-                conv['total_bytes'],
-                self.tshark.capture_duration
-            )
+            bandwidth = stats['bandwidth_mbps']
             
+            # Пропускаем ниже порога
             if bandwidth < config.NETWORK_THRESHOLD_MBPS:
                 continue
             
-            # Определение задач по IP (упрощённо)
-            source_task = f"task_{conv['ip1']}"
-            dest_task = f"task_{conv['ip2']}"
-            
             flow = NetworkFlow(
-                source_node=self.node_id,
-                source_task=source_task,
-                source_ip=conv['ip1'],
-                source_port=0,
-                dest_node=self.identify_remote_node(conv['ip2']),
-                dest_task=dest_task,
-                dest_ip=conv['ip2'],
+                source_node=stats['sender'],
+                source_task=stats['sender'],
+                source_ip=self.node_ip,
+                source_port=0,  # ROS 2 использует динамические порты
+                dest_node=stats['receiver'],
+                dest_task=stats['receiver'],
+                dest_ip="0.0.0.0",  # Не определяем IP получателя
                 dest_port=0,
-                protocol=conv['protocol'],
-                bytes_sent=conv['total_bytes'],
-                packets_sent=conv['packets_1_to_2'],
+                protocol="ROS2_DDS",
+                bytes_sent=stats['bytes'],
+                packets_sent=stats['messages'],
                 bandwidth_mbps=bandwidth,
                 timestamp=timestamp
             )
             flows.append(flow)
             
             total_bandwidth += bandwidth
-            total_packets += conv['packets_1_to_2']
+            total_packets += stats['messages']
         
         report = NetworkReport(
             node_id=self.node_id,
@@ -287,7 +333,7 @@ class NetworkProfiler:
             num_flows=len(flows)
         )
         
-        logger.info(f"Сетевой отчёт: {len(flows)} потоков, {total_bandwidth:.2f} Mbps")
+        logger.info(f"Сетевой отчёт: {len(flows)} потоков, {total_bandwidth:.4f} Mbps")
         return report
     
     def send_to_collector(self, report: NetworkReport) -> bool:
@@ -310,28 +356,33 @@ class NetworkProfiler:
     
     def run_continuous(self):
         """Непрерывный мониторинг"""
-        logger.info(f"Запуск сетевого мониторинга на {self.node_id}")
+        logger.info(f"Запуск сетевого мониторинга ROS 2 на {self.node_id}")
         
-        while True:
-            try:
+        if not self.initialize_ros_monitor():
+            logger.error("Не удалось инициализировать ROS монитор")
+            return
+        
+        try:
+            while rclpy.ok():
                 report = self.collect_network_metrics()
-                self.send_to_collector(report)
-            except KeyboardInterrupt:
-                logger.info("Сетевой мониторинг остановлен")
-                break
-            except Exception as e:
-                logger.error(f"Ошибка в сетевом мониторинге: {e}")
-            
-            time.sleep(config.NETWORK_INTERVAL)
+                if report:
+                    self.send_to_collector(report)
+                
+                # Спим NETWORK_INTERVAL секунд
+                time.sleep(config.NETWORK_INTERVAL)
+                
+        except KeyboardInterrupt:
+            logger.info("Сетевой мониторинг остановлен")
+        finally:
+            if self.ros_monitor:
+                self.ros_monitor.destroy()
+            if rclpy.ok():
+                rclpy.shutdown()
 
 
 def main():
     """Точка входа"""
     profiler = NetworkProfiler()
-    
-    if not profiler.tshark.check_tshark_available():
-        logger.error("tshark недоступен. Установите: sudo apt install tshark")
-        return 1
     
     try:
         profiler.run_continuous()
