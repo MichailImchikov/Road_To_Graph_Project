@@ -19,5 +19,7 @@ class SystemConfig:
     OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
     LOG_LEVEL: str = 'INFO'
     NUM_CORES: int = os.cpu_count() or 4
+    CPU_THRESHOLD_PERCENT: float = 5.0
+    NETWORK_THRESHOLD_MBPS: float = 0.01
 
 config = SystemConfig()

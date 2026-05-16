@@ -1,125 +1,150 @@
 #!/usr/bin/env python3
 # benchmark/create_light_ros_graph.py
-# Легкая версия генератора для проверки работоспособности системы
+# Пуленепробиваемый генератор (pyrgg + встроенный fallback для 5..150+ нод)
 
 import os
 import subprocess
-import random
 import time
-from pyrgg import graph_gen
+import random
 
-# === НАСТРОЙКИ ДЛЯ ТЕСТА (ЛЕГКАЯ НАГРУЗКА) ===
-NUM_NODES = 5             # Всего 5 нод (вместо 150)
-MIN_EDGES_PER_NODE = 1    # Минимум 1 связь
-MAX_EDGES_PER_NODE = 2    # Максимум 2 связи
-TARGET_BANDWIDTH_MBPS = 10 # Низкий трафик (10 Мбит/с суммарно)
-BASE_MEMORY_MB = 20       # Мало памяти (20 МБ на ноду)
-CPU_LOAD_FACTOR = 0.05    # Очень легкая нагрузка на CPU (чтобы не греть ноутбук)
+# === НАСТРОЙКИ ===
+NUM_NODES = 5             # Поменяй на 150 для продакшена
+MIN_EDGES = 1    
+MAX_EDGES = 2    
+TARGET_BW_MBPS = 50 
+BASE_MEM_MB = 20       
+CPU_FACTOR = 0.05    
 
-def generate_test_graph():
-    """Генерация маленького графа"""
-    print(f"🎲 Генерация ТЕСТОВОГО графа: {NUM_NODES} узлов...")
-    
+def generate_test_graph(num_nodes=NUM_NODES, min_edges=MIN_EDGES, max_edges=MAX_EDGES):
+    """Генерация графа: pyrgg -> fallback (чистый Python)"""
+    print(f" Генерация графа: {num_nodes} узлов...")
     edges = []
-    # Генерируем простой граф
-    graph_gen(
-        file_name="test_graph",
-        nodes=NUM_NODES,
-        min_edge=MIN_EDGES_PER_NODE,
-        max_edge=MAX_EDGES_PER_NODE, 
-        weight=False,
-        direct=True,
-        self_loop=False,
-        multigraph=False,
-        output_format="gr"
-    )
-    
-    with open("test_graph.gr", "r") as f:
-        lines = f.readlines()
-        for line in lines[2:]:
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                u, v = int(parts[0]), int(parts[1])
-                edges.append((u, v))
-                
-    print(f"✅ Сгенерировано {len(edges)} связей.")
+
+    # 1️⃣ Попытка использовать pyrgg (поддержка v1.x и v2.x)
+    try:
+        try:
+            from pyrgg import graph_gen  # v1.x
+        except ImportError:
+            from pyrgg.functions import graph_gen  # v2.x
+            
+        graph_gen(
+            file_name="test_graph",
+            vertex_number=num_nodes,
+            min_edge=min_edges, max_edge=max_edges,
+            weight=(1, 10), direct=1, self_loop=0, multigraph=0
+        )
+        
+        with open("test_graph.gr", "r") as f:
+            for line in f.readlines()[2:]:  # Пропускаем заголовок
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    edges.append((int(parts[0]), int(parts[1])))
+                    
+        print(f"✅ Pyrgg сгенерировал {len(edges)} связей.")
+        
+    except Exception as e:
+        print(f"⚠️ Pyrgg недоступен ({e}). Использую встроенный генератор.")
+        
+        # 2️⃣ Встроенный генератор (работает для 5 и 150 нод, 0 зависимостей)
+        # Гарантируем связность: базовый цикл 1->2->...->N->1
+        for i in range(1, num_nodes):
+            edges.append((i, i+1))
+        edges.append((num_nodes, 1))
+        
+        # Добавляем случайные ребра до лимита max_edges на узел
+        existing = set(edges)
+        max_attempts = num_nodes * 20  # Защита от зависания
+        attempts = 0
+        
+        while attempts < max_attempts:
+            u = random.randint(1, num_nodes)
+            v = random.randint(1, num_nodes)
+            
+            if u != v and (u, v) not in existing:
+                # Проверяем лимит исходящих рёбер
+                out_degree = sum(1 for e in edges if e[0] == u)
+                if out_degree < max_edges:
+                    edges.append((u, v))
+                    existing.add((u, v))
+            attempts += 1
+            
+        print(f"✅ Встроенный генератор создал {len(edges)} связей.")
+
     return edges
 
 def create_node_script(node_id, neighbors, target_bw_mbps, memory_mb):
-    """Создает скрипт ноды (аналогичный тяжелому, но с другими константами)"""
+    """Генерация скрипта ноды через безопасный шаблон"""
     
-    freq_hz = 5.0  # Меньшая частота публикации (5 Гц)
+    freq_hz = 50
     bytes_per_sec = (target_bw_mbps * 1024 * 1024) / 8
-    msg_size_bytes = int(bytes_per_sec / freq_hz)
+    msg_size = max(100, int(bytes_per_sec / freq_hz))
     
-    # Минимальный размер сообщения 100 байт
-    if msg_size_bytes < 100:
-        msg_size_bytes = 100
-        
-    script_content = f'''#!/usr/bin/env python3
+    # Шаблон БЕЗ f-строк. Маркеры __VAR__ заменяются через .replace()
+    template = '''#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import ByteMultiArray
-import time
-import random
+from std_msgs.msg import String  # ✅ Стабильный тип, никаких AssertionErrors
 import math
 
 class LightWorkerNode(Node):
-    def __init__(self, node_id, neighbors, msg_size, memory_mb):
-        super().__init__('light_worker_{{node_id}}')
-        self.node_id = node_id
+    def __init__(self):
+        name = 'light_worker_' + str(__NODE_ID__)
+        super().__init__(name)
+        self.node_id = __NODE_ID__
         
-        # Алокация памяти (меньше чем в тяжелой версии)
-        self.memory_hog = bytearray(int(memory_mb * 1024 * 1024))
+        # Алокация памяти (нагрузка на RAM)
+        self.memory_hog = bytearray(int(__MEMORY_MB__ * 1024 * 1024))
         
-        # Подготовка данных
-        self.pubs = {{}}
-        self.fake_payload = ByteMultiArray()
-        self.fake_payload.data = [random.randint(0, 255) for _ in range(msg_size)]
+        self.pubs = {}
+        self.payload = String()
+        self.payload.data = 'X' * __MSG_SIZE__
         
-        for neighbor in neighbors:
-            topic_name = f"light_topic_{{node_id}}_to_{{neighbor}}"
-            pub = self.create_publisher(ByteMultiArray, topic_name, 10)
-            self.pubs[neighbor] = pub
-            self.create_timer(1.0/freq_hz, lambda n=neighbor: self.publish_tick(n))
+        for n in __NEIGHBORS__:
+            # ✅ Простое сложение строк (ROS 2 не любит фигурные скобки в топиках)
+            topic = "light_topic_" + str(self.node_id) + "_to_" + str(n)
+            pub = self.create_publisher(String, topic, 10)
+            self.pubs[n] = pub
+            self.create_timer(0.2, lambda nb=n: self.tick(nb))
             
-        self.get_logger().info(f"Light Node {{node_id}} started. Mem: {{memory_mb}}MB")
+        self.get_logger().info("Node " + str(self.node_id) + " started. Mem: " + str(__MEMORY_MB__) + "MB")
 
-    def publish_tick(self, neighbor_id):
+    def tick(self, neighbor_id):
         try:
-            self.pubs[neighbor_id].publish(self.fake_payload)
+            self.pubs[neighbor_id].publish(self.payload)
         except Exception:
             pass
 
-    def fake_compute(self):
-        # Очень легкая нагрузка
-        x = 0.0
-        limit = int(5000 * {CPU_LOAD_FACTOR}) 
+    def compute(self):
+        # Нагрузка на CPU
+        limit = int(5000 * __CPU_FACTOR__)
         for i in range(limit):
-            x += math.sin(i) * 0.001
+            math.sin(i)
 
-def main(args=None):
-    rclpy.init(args=args)
-    neighbors = {neighbors}
-    msg_size = {msg_size_bytes}
-    mem_mb = {memory_mb}
+def main():
+    rclpy.init()
+    node = LightWorkerNode()
     
-    node = LightWorkerNode({node_id}, neighbors, msg_size, mem_mb)
-    
-    while rclpy.ok():
-        node.fake_compute()
-        rclpy.spin_once(node, timeout_sec=0.01)
-    
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        while rclpy.ok():
+            node.compute()
+            rclpy.spin_once(node, timeout_sec=0.01)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
-    import math
     main()
 '''
     
+    # Безопасная подстановка
+    script_content = template.replace('__NODE_ID__', str(node_id))
+    script_content = script_content.replace('__NEIGHBORS__', str(neighbors))
+    script_content = script_content.replace('__MSG_SIZE__', str(msg_size))
+    script_content = script_content.replace('__MEMORY_MB__', str(memory_mb))
+    script_content = script_content.replace('__CPU_FACTOR__', str(CPU_FACTOR))
+        
     filename = f"light_node_{node_id}.py"
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(script_content)
     os.chmod(filename, 0o755)
     return filename
@@ -131,34 +156,34 @@ def launch_system():
     for u, v in edges:
         adjacency[u].append(v)
     
-    bw_per_edge = TARGET_BANDWIDTH_MBPS / len(edges) if edges else 1
+    bw_per_edge = TARGET_BW_MBPS / len(edges) if edges else 1
     
     processes = []
-    print(f"🚀 Запуск ЛЕГКОЙ системы ({NUM_NODES} нод)...")
+    print(f" Запуск {NUM_NODES} нод...")
     
     for node_id, neighbors in adjacency.items():
-        mem_load = BASE_MEMORY_MB + random.randint(0, 10)
+        mem_load = BASE_MEM_MB + random.randint(0, 10)
         script = create_node_script(node_id, neighbors, bw_per_edge, mem_load)
         
         cmd = f"bash -c 'source /opt/ros/humble/setup.bash && python3 {script}'"
         proc = subprocess.Popen(cmd, shell=True, start_new_session=True)
         processes.append((node_id, proc))
-        print(f"   Запущена легкая нода {node_id} (PID: {proc.pid})")
-        time.sleep(0.5) # Пауза между стартом нод
+        print(f"   ✅ Нода {node_id} запущена (PID: {proc.pid})")
+        time.sleep(0.5)
     
-    print(f"✅ ЛЕГКАЯ СИСТЕМА ЗАПУЩЕНА!")
-    print("💡 Проверьте работу командой: ros2 node list")
-    print("Нажмите Ctrl+C для остановки.")
+    print(f"\n✅ СИСТЕМА ЗАПУЩЕНА!")
+    print("💡 Проверьте: ros2 node list")
+    print("Нажмите Ctrl+C для остановки.\n")
     
     try:
         for _, proc in processes:
             proc.wait()
     except KeyboardInterrupt:
-        print("\n🛑 Остановка легкой системы...")
-        for node_id, proc in processes:
+        print("\n🛑 Остановка системы...")
+        for _, proc in processes:
             proc.terminate()
-        subprocess.run(['pkill', '-f', 'light_node_\\d+\\.py'])
-        print("Система остановлена.")
+        subprocess.run(['pkill', '-f', 'light_node_\\d+\\.py'], stdout=subprocess.DEVNULL)
+        print("Готово.")
 
 if __name__ == "__main__":
     launch_system()

@@ -76,7 +76,7 @@ class ROS2TrafficMonitor(Node):
         
         # Статистика по топикам
         self.topic_stats: Dict[str, Dict] = {}
-        self.subscriptions = {}
+        self._ros_subs = {}
         
         # Блокировка для потокобезопасности
         self.lock = threading.Lock()
@@ -112,7 +112,7 @@ class ROS2TrafficMonitor(Node):
                 if 'light_topic' in topic_name:
                     self._subscribe_to_topic(topic_name, topic_types[0])
             
-            logger.info(f"Подписался на {len(self.subscriptions)} ROS 2 топиков")
+            logger.info(f"Подписался на {len(self._ros_subs)} ROS 2 топиков")
             
         except Exception as e:
             logger.error(f"Ошибка обнаружения топиков: {e}")
@@ -123,10 +123,10 @@ class ROS2TrafficMonitor(Node):
             # Определяем тип сообщения и подписываемся
             if topic_type == 'std_msgs/msg/ByteMultiArray':
                 qos = QoSProfile(
-                    depth=10,
-                    reliability=ReliabilityPolicy.BEST_EFFORT
+                    depth=100,
+                    reliability=ReliabilityPolicy.RELIABLE
                 )
-                self.subscriptions[topic_name] = self.create_subscription(
+                self._ros_subs[topic_name] = self.create_subscription(
                     ByteMultiArray,
                     topic_name,
                     lambda msg, tn=topic_name: self._callback(msg, tn),
@@ -134,10 +134,10 @@ class ROS2TrafficMonitor(Node):
                 )
             elif topic_type == 'std_msgs/msg/String':
                 qos = QoSProfile(
-                    depth=10,
-                    reliability=ReliabilityPolicy.BEST_EFFORT
+                    depth=100,
+                    reliability=ReliabilityPolicy.RELIABLE
                 )
-                self.subscriptions[topic_name] = self.create_subscription(
+                self._ros_subs[topic_name] = self.create_subscription(
                     String,
                     topic_name,
                     lambda msg, tn=topic_name: self._callback(msg, tn),
@@ -150,6 +150,7 @@ class ROS2TrafficMonitor(Node):
             logger.error(f"Ошибка подписки на {topic_name}: {e}")
     
     def _callback(self, msg, topic_name: str):
+        logger.debug(f"✅ Callback сработал для {topic_name}")
         """Обработка входящего сообщения"""
         try:
             # Определяем размер сообщения
@@ -233,7 +234,7 @@ class ROS2TrafficMonitor(Node):
     
     def destroy(self):
         """Очистка ресурсов"""
-        for sub in self.subscriptions.values():
+        for sub in self._ros_subs.values():
             self.destroy_subscription(sub)
         self.destroy_node()
 
