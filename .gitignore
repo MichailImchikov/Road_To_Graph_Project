@@ -32,4 +32,4 @@ benchmark/__pycache__/
 
 # OS
 .DS_Store
-Thumbs.db
+Thumbs.dbbenchmark/light_node_*.py

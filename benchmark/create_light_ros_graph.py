@@ -9,7 +9,7 @@ import pathlib
 from typing import List, Tuple, Dict
 
 # Config - tweak these for different load scenarios
-NUM_NODES = 10
+NUM_NODES = 20
 MIN_EDGES = 1
 MAX_EDGES = 1
 TARGET_BW_MBPS = 5
