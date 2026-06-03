@@ -1,0 +1,659 @@
+{
+  "report_type": "system_profiling",
+  "timestamp": "2026-05-27T13:18:29.547728",
+  "total_nodes": 1,
+  "total_tasks": 45,
+  "total_cpu_load_avg": 12.13,
+  "total_memory_usage_mb": 6658.0,
+  "nodes": [
+    {
+      "node_id": "asus-tuf",
+      "last_update": "2026-05-27T13:17:01.202075+00:00",
+      "total_cpu_load": 12.13,
+      "total_memory_usage_mb": 6658.0,
+      "num_cores": 8,
+      "num_active_tasks": 45,
+      "tasks": [
+        {
+          "task_id": "asus-tuf_428235",
+          "task_name": "python3 light_node_50.py",
+          "node_id": "asus-tuf",
+          "core_id": 0,
+          "cpu_load_percent": 7.4,
+          "memory_usage_mb": 889.140625,
+          "instructions_per_sec": 668813829.5,
+          "memory_bandwidth_mbps": 3686.319,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_428030",
+          "task_name": "python3 light_node_42.py",
+          "node_id": "asus-tuf",
+          "core_id": 1,
+          "cpu_load_percent": 7.1,
+          "memory_usage_mb": 888.1171875,
+          "instructions_per_sec": 790864098.5,
+          "memory_bandwidth_mbps": 3671.1151,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427746",
+          "task_name": "python3 light_node_32.py",
+          "node_id": "asus-tuf",
+          "core_id": 2,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 892.11328125,
+          "instructions_per_sec": 717027569.0,
+          "memory_bandwidth_mbps": 3638.4682,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427560",
+          "task_name": "python3 light_node_25.py",
+          "node_id": "asus-tuf",
+          "core_id": 3,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 897.171875,
+          "instructions_per_sec": 770261688.0,
+          "memory_bandwidth_mbps": 3594.6899,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427725",
+          "task_name": "python3 light_node_31.py",
+          "node_id": "asus-tuf",
+          "core_id": 4,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 896.15625,
+          "instructions_per_sec": 765372713.0,
+          "memory_bandwidth_mbps": 4023.2354,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427912",
+          "task_name": "python3 light_node_38.py",
+          "node_id": "asus-tuf",
+          "core_id": 5,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 888.1796875,
+          "instructions_per_sec": 794658293.5,
+          "memory_bandwidth_mbps": 3684.3725,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427166",
+          "task_name": "python3 light_node_12.py",
+          "node_id": "asus-tuf",
+          "core_id": 6,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 898.11328125,
+          "instructions_per_sec": 743908445.0,
+          "memory_bandwidth_mbps": 3780.5983,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427143",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "asus-tuf_427190",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_427943",
+          "task_name": "python3 light_node_39.py",
+          "node_id": "asus-tuf",
+          "core_id": 7,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 893.21484375,
+          "instructions_per_sec": 675165361.0,
+          "memory_bandwidth_mbps": 3631.7629,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427779",
+          "task_name": "python3 light_node_33.py",
+          "node_id": "asus-tuf",
+          "core_id": 0,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 888.125,
+          "instructions_per_sec": 702335194.0,
+          "memory_bandwidth_mbps": 3637.8769,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_428194",
+          "task_name": "python3 light_node_48.py",
+          "node_id": "asus-tuf",
+          "core_id": 1,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 896.12109375,
+          "instructions_per_sec": 710810717.5,
+          "memory_bandwidth_mbps": 3607.708,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427800",
+          "task_name": "python3 light_node_34.py",
+          "node_id": "asus-tuf",
+          "core_id": 2,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 897.16796875,
+          "instructions_per_sec": 749460463.5,
+          "memory_bandwidth_mbps": 3641.2643,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427215",
+          "task_name": "python3 light_node_14.py",
+          "node_id": "asus-tuf",
+          "core_id": 3,
+          "cpu_load_percent": 7.0,
+          "memory_usage_mb": 898.11328125,
+          "instructions_per_sec": 790593915.0,
+          "memory_bandwidth_mbps": 3608.6102,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427190",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "asus-tuf_427238",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_427698",
+          "task_name": "python3 light_node_30.py",
+          "node_id": "asus-tuf",
+          "core_id": 4,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 892.11328125,
+          "instructions_per_sec": 696058666.0,
+          "memory_bandwidth_mbps": 3648.6378,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427966",
+          "task_name": "python3 light_node_40.py",
+          "node_id": "asus-tuf",
+          "core_id": 5,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 896.11328125,
+          "instructions_per_sec": 697100982.0,
+          "memory_bandwidth_mbps": 3630.3596,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427537",
+          "task_name": "python3 light_node_24.py",
+          "node_id": "asus-tuf",
+          "core_id": 6,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 898.11328125,
+          "instructions_per_sec": 754690855.0,
+          "memory_bandwidth_mbps": 3845.6507,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427119",
+          "task_name": "python3 light_node_10.py",
+          "node_id": "asus-tuf",
+          "core_id": 7,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 892.1171875,
+          "instructions_per_sec": 667761531.5,
+          "memory_bandwidth_mbps": 3587.8435,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427143",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0001
+        },
+        {
+          "task_id": "asus-tuf_427263",
+          "task_name": "python3 light_node_16.py",
+          "node_id": "asus-tuf",
+          "core_id": 0,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 890.11328125,
+          "instructions_per_sec": 763917968.0,
+          "memory_bandwidth_mbps": 3975.9263,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427238",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "light_node_17",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_427474",
+          "task_name": "python3 light_node_22.py",
+          "node_id": "asus-tuf",
+          "core_id": 1,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 891.12109375,
+          "instructions_per_sec": 712248580.0,
+          "memory_bandwidth_mbps": 3628.9234,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_428009",
+          "task_name": "python3 light_node_41.py",
+          "node_id": "asus-tuf",
+          "core_id": 2,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 896.11328125,
+          "instructions_per_sec": 658005479.5,
+          "memory_bandwidth_mbps": 3623.8734,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_428110",
+          "task_name": "python3 light_node_45.py",
+          "node_id": "asus-tuf",
+          "core_id": 3,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 898.24609375,
+          "instructions_per_sec": 759698698.0,
+          "memory_bandwidth_mbps": 3634.1485,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427238",
+          "task_name": "python3 light_node_15.py",
+          "node_id": "asus-tuf",
+          "core_id": 4,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 891.11328125,
+          "instructions_per_sec": 732271506.0,
+          "memory_bandwidth_mbps": 3648.1478,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427215",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "asus-tuf_427263",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_427891",
+          "task_name": "python3 light_node_37.py",
+          "node_id": "asus-tuf",
+          "core_id": 5,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 896.16796875,
+          "instructions_per_sec": 727382684.0,
+          "memory_bandwidth_mbps": 3716.2803,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427581",
+          "task_name": "python3 light_node_26.py",
+          "node_id": "asus-tuf",
+          "core_id": 6,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 890.15625,
+          "instructions_per_sec": 767562574.0,
+          "memory_bandwidth_mbps": 3644.0203,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427638",
+          "task_name": "python3 light_node_28.py",
+          "node_id": "asus-tuf",
+          "core_id": 7,
+          "cpu_load_percent": 6.9,
+          "memory_usage_mb": 891.11328125,
+          "instructions_per_sec": 711904596.5,
+          "memory_bandwidth_mbps": 3633.2031,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427868",
+          "task_name": "python3 light_node_36.py",
+          "node_id": "asus-tuf",
+          "core_id": 0,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 893.11328125,
+          "instructions_per_sec": 694842297.5,
+          "memory_bandwidth_mbps": 3630.8938,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427839",
+          "task_name": "python3 light_node_35.py",
+          "node_id": "asus-tuf",
+          "core_id": 1,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 890.11328125,
+          "instructions_per_sec": 758289446.5,
+          "memory_bandwidth_mbps": 4030.5933,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427614",
+          "task_name": "python3 light_node_27.py",
+          "node_id": "asus-tuf",
+          "core_id": 2,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 896.1171875,
+          "instructions_per_sec": 692459496.0,
+          "memory_bandwidth_mbps": 3682.276,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_428221",
+          "task_name": "python3 light_node_49.py",
+          "node_id": "asus-tuf",
+          "core_id": 3,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 895.2421875,
+          "instructions_per_sec": 727496739.5,
+          "memory_bandwidth_mbps": 3597.7786,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427366",
+          "task_name": "python3 light_node_19.py",
+          "node_id": "asus-tuf",
+          "core_id": 4,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 895.1171875,
+          "instructions_per_sec": 716875337.5,
+          "memory_bandwidth_mbps": 3619.0181,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427336",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0001
+        },
+        {
+          "task_id": "asus-tuf_427449",
+          "task_name": "python3 light_node_21.py",
+          "node_id": "asus-tuf",
+          "core_id": 5,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 894.11328125,
+          "instructions_per_sec": 685643144.5,
+          "memory_bandwidth_mbps": 3642.0147,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427405",
+          "task_name": "python3 light_node_20.py",
+          "node_id": "asus-tuf",
+          "core_id": 6,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 896.11328125,
+          "instructions_per_sec": 723781004.5,
+          "memory_bandwidth_mbps": 3641.6784,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427143",
+          "task_name": "python3 light_node_11.py",
+          "node_id": "asus-tuf",
+          "core_id": 7,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 896.11328125,
+          "instructions_per_sec": 775037647.0,
+          "memory_bandwidth_mbps": 3639.8352,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427119",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "asus-tuf_427166",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_428134",
+          "task_name": "python3 light_node_46.py",
+          "node_id": "asus-tuf",
+          "core_id": 0,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 896.11328125,
+          "instructions_per_sec": 731307830.5,
+          "memory_bandwidth_mbps": 3622.7119,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_428077",
+          "task_name": "python3 light_node_44.py",
+          "node_id": "asus-tuf",
+          "core_id": 1,
+          "cpu_load_percent": 6.8,
+          "memory_usage_mb": 895.11328125,
+          "instructions_per_sec": 706213001.5,
+          "memory_bandwidth_mbps": 3706.6342,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427190",
+          "task_name": "python3 light_node_13.py",
+          "node_id": "asus-tuf",
+          "core_id": 2,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 898.11328125,
+          "instructions_per_sec": 722345505.0,
+          "memory_bandwidth_mbps": 3659.2758,
+          "adjacent_tasks": [
+            {
+              "task_id": "asus-tuf_427166",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "asus-tuf_427215",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_428168",
+          "task_name": "python3 light_node_47.py",
+          "node_id": "asus-tuf",
+          "core_id": 3,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 896.19140625,
+          "instructions_per_sec": 819269258.0,
+          "memory_bandwidth_mbps": 3649.6035,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427025",
+          "task_name": "python3 light_node_6.py",
+          "node_id": "asus-tuf",
+          "core_id": 4,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 891.11328125,
+          "instructions_per_sec": 722625918.0,
+          "memory_bandwidth_mbps": 3603.3048,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427048",
+          "task_name": "python3 light_node_7.py",
+          "node_id": "asus-tuf",
+          "core_id": 5,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 893.11328125,
+          "instructions_per_sec": 711128024.0,
+          "memory_bandwidth_mbps": 3606.9031,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_426976",
+          "task_name": "python3 light_node_4.py",
+          "node_id": "asus-tuf",
+          "core_id": 6,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 892.11328125,
+          "instructions_per_sec": 808122081.5,
+          "memory_bandwidth_mbps": 3643.8119,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427072",
+          "task_name": "python3 light_node_8.py",
+          "node_id": "asus-tuf",
+          "core_id": 7,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 888.1171875,
+          "instructions_per_sec": 730544496.0,
+          "memory_bandwidth_mbps": 3628.3063,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427096",
+          "task_name": "python3 light_node_9.py",
+          "node_id": "asus-tuf",
+          "core_id": 0,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 889.1171875,
+          "instructions_per_sec": 732755624.0,
+          "memory_bandwidth_mbps": 3689.2965,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427678",
+          "task_name": "python3 light_node_29.py",
+          "node_id": "asus-tuf",
+          "core_id": 1,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 892.125,
+          "instructions_per_sec": 702370244.5,
+          "memory_bandwidth_mbps": 3683.2679,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_427336",
+          "task_name": "python3 light_node_18.py",
+          "node_id": "asus-tuf",
+          "core_id": 2,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 892.11328125,
+          "instructions_per_sec": 874314569.5,
+          "memory_bandwidth_mbps": 4401.8687,
+          "adjacent_tasks": [
+            {
+              "task_id": "light_node_17",
+              "bandwidth_mbps": 0.0001,
+              "direction": "inbound"
+            },
+            {
+              "task_id": "asus-tuf_427366",
+              "bandwidth_mbps": 0.0001,
+              "direction": "outbound"
+            }
+          ],
+          "network_traffic_mbps": 0.0002
+        },
+        {
+          "task_id": "asus-tuf_427513",
+          "task_name": "python3 light_node_23.py",
+          "node_id": "asus-tuf",
+          "core_id": 3,
+          "cpu_load_percent": 6.7,
+          "memory_usage_mb": 897.11328125,
+          "instructions_per_sec": 893220955.5,
+          "memory_bandwidth_mbps": 3912.9208,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        },
+        {
+          "task_id": "asus-tuf_426952",
+          "task_name": "python3 light_node_3.py",
+          "node_id": "asus-tuf",
+          "core_id": 4,
+          "cpu_load_percent": 6.6,
+          "memory_usage_mb": 895.11328125,
+          "instructions_per_sec": 726799409.0,
+          "memory_bandwidth_mbps": 3660.7183,
+          "adjacent_tasks": [],
+          "network_traffic_mbps": 0.0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_nodes": 1,
+    "total_tasks": 45,
+    "avg_cpu_load_percent": 12.13,
+    "total_memory_usage_mb": 6658.0,
+    "avg_tasks_per_node": 45.0,
+    "high_load_tasks": [],
+    "high_memory_tasks": [],
+    "high_network_tasks": []
+  }
+}

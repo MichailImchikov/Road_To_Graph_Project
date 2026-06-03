@@ -1,95 +1,43 @@
 #!/bin/bash
-# scripts/start_collector.sh - Запуск центрального сервера сбора данных
+# scripts/start_collector.sh - Launch central metrics collector
 
-set -e
+set -euo pipefail
 
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  VMS Profiler - Запуск центрального сборщика           ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Конфигурация
-# ═══════════════════════════════════════════════════════════════
+# Configuration
 COLLECTOR_HOST="${COLLECTOR_HOST:-0.0.0.0}"
 COLLECTOR_PORT="${COLLECTOR_PORT:-8080}"
 LOG_FILE="${LOG_FILE:-logs/collector.log}"
 
-# ═══════════════════════════════════════════════════════════════
-# Проверки
-# ═══════════════════════════════════════════════════════════════
-echo "🔍 Проверка зависимостей..."
+echo "VMS Profiler - Collector Launcher"
+echo "Binding: $COLLECTOR_HOST:$COLLECTOR_PORT"
 
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python3 не найден!"
+# Check dependencies
+command -v python3 &>/dev/null || { echo "[FAIL] python3 not found"; exit 1; }
+python3 -c "import flask" &>/dev/null || { echo "[FAIL] Flask not installed"; exit 1; }
+
+# Setup
+mkdir -p logs output
+export COLLECTOR_HOST COLLECTOR_PORT
+
+# Prevent duplicate runs
+if pgrep -f "collector\.py" > /dev/null 2>&1; then
+    echo "[WARN] Collector already running"
     exit 1
 fi
 
-if ! python3 -c "import flask" &> /dev/null; then
-    echo "❌ Flask не установлен! Запустите ./scripts/install.sh"
-    exit 1
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# Создание директорий
-# ═══════════════════════════════════════════════════════════════
-mkdir -p logs
-mkdir -p output
-
-# ═══════════════════════════════════════════════════════════════
-# Экспорт переменных окружения
-# ═══════════════════════════════════════════════════════════════
-export COLLECTOR_HOST
-export COLLECTOR_PORT
-
-echo "📋 Конфигурация:"
-echo "   Хост: $COLLECTOR_HOST"
-echo "   Порт: $COLLECTOR_PORT"
-echo "   Лог:  $LOG_FILE"
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Запуск
-# ═══════════════════════════════════════════════════════════════
-echo "🚀 Запуск collector.py..."
-
-# Проверка на уже запущенный процесс
-if pgrep -f "collector.py" > /dev/null; then
-    echo "⚠️  Collector уже запущен!"
-    echo "   Остановить: ./scripts/stop_all.sh"
-    exit 1
-fi
-
-# Запуск в фоне
+# Launch
+echo "Starting collector..."
 nohup python3 collector/collector.py > "$LOG_FILE" 2>&1 &
 COLLECTOR_PID=$!
 
-echo "✅ Collector запущен (PID: $COLLECTOR_PID)"
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Проверка запуска
-# ═══════════════════════════════════════════════════════════════
+# Verify health endpoint
 sleep 2
-
-echo "🔍 Проверка здоровья..."
-if curl -s "http://localhost:$COLLECTOR_PORT/health" > /dev/null; then
-    echo "✅ Collector работает корректно"
-    curl -s "http://localhost:$COLLECTOR_PORT/health" | python3 -m json.tool
+if curl -sf "http://localhost:$COLLECTOR_PORT/health" > /dev/null 2>&1; then
+    echo "[OK] Collector running (PID $COLLECTOR_PID)"
+    curl -sf "http://localhost:$COLLECTOR_PORT/health" 2>/dev/null | python3 -m json.tool || true
 else
-    echo "❌ Collector не отвечает! Проверьте лог: $LOG_FILE"
+    echo "[FAIL] Health check failed. Check $LOG_FILE"
     exit 1
 fi
 
-echo ""
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  ✅ СБОРЩИК ЗАПУЩЕН И ГОТОВ К РАБОТЕ!                  ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-echo "📋 Полезные команды:"
-echo "   Проверка статуса: curl http://localhost:$COLLECTOR_PORT/health"
-echo "   Список узлов:     curl http://localhost:$COLLECTOR_PORT/nodes"
-echo "   Отчёт:            curl http://localhost:$COLLECTOR_PORT/report"
-echo "   Остановить:       ./scripts/stop_all.sh"
-echo "   Лог:              tail -f $LOG_FILE"
-echo ""
+echo "[OK] Ready on port $COLLECTOR_PORT"

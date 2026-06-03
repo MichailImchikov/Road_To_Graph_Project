@@ -1,44 +1,28 @@
 #!/bin/bash
-# scripts/generate_report.sh - Генерация итогового отчёта
+# scripts/generate_report.sh - Generate final profiling report
 
-set -e
+set -euo pipefail
 
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  VMS Profiler - Генерация отчёта                       ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Конфигурация
-# ═══════════════════════════════════════════════════════════════
 COLLECTOR_HOST="${COLLECTOR_HOST:-localhost}"
 COLLECTOR_PORT="${COLLECTOR_PORT:-8080}"
 OUTPUT_DIR="${OUTPUT_DIR:-./output}"
 
-# ═══════════════════════════════════════════════════════════════
-# Проверка доступности коллектора
-# ═══════════════════════════════════════════════════════════════
-echo "🔍 Проверка подключения к коллектору..."
+echo "VMS Profiler - Report Generator"
+echo "Target: $COLLECTOR_HOST:$COLLECTOR_PORT"
 
-if ! curl -s "http://$COLLECTOR_HOST:$COLLECTOR_PORT/health" > /dev/null; then
-    echo "❌ Коллектор недоступен на $COLLECTOR_HOST:$COLLECTOR_PORT"
-    echo "   Запустите: ./scripts/start_collector.sh"
+# Check collector health
+if ! curl -sf "http://$COLLECTOR_HOST:$COLLECTOR_PORT/health" > /dev/null 2>&1; then
+    echo "[FAIL] Collector not reachable"
     exit 1
 fi
+echo "[OK] Collector online"
 
-echo "✅ Коллектор доступен"
+# Show quick stats preview
+echo "Fetching metrics summary..."
+curl -sf "http://$COLLECTOR_HOST:$COLLECTOR_PORT/stats" 2>/dev/null | python3 -m json.tool || true
 
-# Получение статистики
-echo ""
-echo "📊 Статистика системы:"
-curl -s "http://$COLLECTOR_HOST:$COLLECTOR_PORT/stats" | python3 -m json.tool
-
-# ═══════════════════════════════════════════════════════════════
-# Генерация отчёта
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "📝 Генерация отчёта..."
-
+# Generate full report
+echo "Running aggregator..."
 mkdir -p "$OUTPUT_DIR"
 
 python3 aggregator/aggregator.py \
@@ -46,14 +30,5 @@ python3 aggregator/aggregator.py \
     --collector-port "$COLLECTOR_PORT" \
     --output-dir "$OUTPUT_DIR"
 
-# ═══════════════════════════════════════════════════════════════
-# Итог
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  ✅ ОТЧЁТ СГЕНЕРИРОВАН!                                ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-echo "📁 Файлы отчёта в: $OUTPUT_DIR"
-ls -lh "$OUTPUT_DIR"/report_*.{json,txt,csv} 2>/dev/null || echo "   (файлы не найдены)"
-echo ""
+echo "[OK] Done. Files in $OUTPUT_DIR:"
+find "$OUTPUT_DIR" -maxdepth 1 -name "report_*" -type f -exec ls -lh {} \;

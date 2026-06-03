@@ -1,31 +1,37 @@
 #!/usr/bin/env python3
-# benchmark/create_light_ros_graph.py
-# Пуленепробиваемый генератор (pyrgg + встроенный fallback для 5..150+ нод)
+"""Generate lightweight ROS 2 graph for profiling experiments."""
 
 import os
 import subprocess
 import time
 import random
+import pathlib
+from typing import List, Tuple, Dict
 
-# === НАСТРОЙКИ ===
-NUM_NODES = 5             # Поменяй на 150 для продакшена
-MIN_EDGES = 1    
-MAX_EDGES = 2    
-TARGET_BW_MBPS = 50 
-BASE_MEM_MB = 20       
-CPU_FACTOR = 0.05    
+# Config - tweak these for different load scenarios
+NUM_NODES = 10
+MIN_EDGES = 1
+MAX_EDGES = 1
+TARGET_BW_MBPS = 5
+BASE_MEM_MB = 5
+CPU_FACTOR = 0.02  # Empirical value, adjust for desired CPU load
 
-def generate_test_graph(num_nodes=NUM_NODES, min_edges=MIN_EDGES, max_edges=MAX_EDGES):
-    """Генерация графа: pyrgg -> fallback (чистый Python)"""
-    print(f" Генерация графа: {num_nodes} узлов...")
+
+def generate_test_graph(
+    num_nodes: int = NUM_NODES,
+    min_edges: int = MIN_EDGES,
+    max_edges: int = MAX_EDGES
+) -> List[Tuple[int, int]]:
+    """Generate topology via pyrgg or fallback to pure Python."""
+    print(f"Generating {num_nodes}-node graph...")
     edges = []
 
-    # 1️⃣ Попытка использовать pyrgg (поддержка v1.x и v2.x)
+    # Try pyrgg first - supports both v1 and v2 APIs (annoying but necessary)
     try:
         try:
-            from pyrgg import graph_gen  # v1.x
+            from pyrgg import graph_gen  # type: ignore
         except ImportError:
-            from pyrgg.functions import graph_gen  # v2.x
+            from pyrgg.functions import graph_gen  # type: ignore
             
         graph_gen(
             file_name="test_graph",
@@ -34,99 +40,100 @@ def generate_test_graph(num_nodes=NUM_NODES, min_edges=MIN_EDGES, max_edges=MAX_
             weight=(1, 10), direct=1, self_loop=0, multigraph=0
         )
         
+        # Parse .gr output - format is undocumented but stable in practice
         with open("test_graph.gr", "r") as f:
-            for line in f.readlines()[2:]:  # Пропускаем заголовок
+            for line in f.readlines()[2:]:  # Skip header
                 parts = line.strip().split()
                 if len(parts) >= 2:
                     edges.append((int(parts[0]), int(parts[1])))
-                    
-        print(f"✅ Pyrgg сгенерировал {len(edges)} связей.")
+        print(f"Pyrgg: {len(edges)} edges")
         
     except Exception as e:
-        print(f"⚠️ Pyrgg недоступен ({e}). Использую встроенный генератор.")
+        # Fallback: ring + random edges, zero dependencies
+        print(f"Pyrgg failed ({e}), using builtin generator")
         
-        # 2️⃣ Встроенный генератор (работает для 5 и 150 нод, 0 зависимостей)
-        # Гарантируем связность: базовый цикл 1->2->...->N->1
+        # Start with ring to guarantee connectivity
         for i in range(1, num_nodes):
-            edges.append((i, i+1))
+            edges.append((i, i + 1))
         edges.append((num_nodes, 1))
         
-        # Добавляем случайные ребра до лимита max_edges на узел
         existing = set(edges)
-        max_attempts = num_nodes * 20  # Защита от зависания
-        attempts = 0
-        
-        while attempts < max_attempts:
-            u = random.randint(1, num_nodes)
-            v = random.randint(1, num_nodes)
-            
+        # Arbitrary limit - enough for randomization without hanging
+        for _ in range(num_nodes * 20):
+            u, v = random.randint(1, num_nodes), random.randint(1, num_nodes)
             if u != v and (u, v) not in existing:
-                # Проверяем лимит исходящих рёбер
-                out_degree = sum(1 for e in edges if e[0] == u)
-                if out_degree < max_edges:
+                if sum(1 for e in edges if e[0] == u) < max_edges:
                     edges.append((u, v))
                     existing.add((u, v))
-            attempts += 1
-            
-        print(f"✅ Встроенный генератор создал {len(edges)} связей.")
+        print(f"Builtin: {len(edges)} edges")
 
     return edges
 
-def create_node_script(node_id, neighbors, target_bw_mbps, memory_mb):
-    """Генерация скрипта ноды через безопасный шаблон"""
-    
-    freq_hz = 50
+
+def _calculate_msg_size(target_bw_mbps: float, freq_hz: int = 50) -> int:
+    # Simple back-of-envelope calc, good enough for load testing
     bytes_per_sec = (target_bw_mbps * 1024 * 1024) / 8
-    msg_size = max(100, int(bytes_per_sec / freq_hz))
+    return max(100, int(bytes_per_sec / freq_hz))
+
+
+def _build_node_script(
+    node_id: int,
+    neighbors: List[int],
+    msg_size: int,
+    memory_mb: float,
+    cpu_factor: float
+) -> str:
+    """Generate worker node code via string template. Ugly but effective."""
     
-    # Шаблон БЕЗ f-строк. Маркеры __VAR__ заменяются через .replace()
-    template = '''#!/usr/bin/env python3
+    # Template with placeholders - safer than f-strings for code generation
+    template = '''\
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String  # ✅ Стабильный тип, никаких AssertionErrors
+from std_msgs.msg import String
 import math
 
 class LightWorkerNode(Node):
-    def __init__(self):
-        name = 'light_worker_' + str(__NODE_ID__)
-        super().__init__(name)
-        self.node_id = __NODE_ID__
+    def __init__(self, node_id, neighbors, msg_size, memory_mb, cpu_factor):
+        super().__init__('light_worker_' + str(node_id))
+        self.node_id = node_id
+        self.cpu_factor = cpu_factor
         
-        # Алокация памяти (нагрузка на RAM)
-        self.memory_hog = bytearray(int(__MEMORY_MB__ * 1024 * 1024))
+        # Memory hog - forces RSS allocation
+        self._memory_hog = bytearray(int(memory_mb * 1024 * 1024))
         
+        self._payload = String()
+        self._payload.data = 'X' * msg_size
         self.pubs = {}
-        self.payload = String()
-        self.payload.data = 'X' * __MSG_SIZE__
         
-        for n in __NEIGHBORS__:
-            # ✅ Простое сложение строк (ROS 2 не любит фигурные скобки в топиках)
-            topic = "light_topic_" + str(self.node_id) + "_to_" + str(n)
+        for nb in neighbors:
+            topic = f"light_topic_{node_id}_to_{nb}"
             pub = self.create_publisher(String, topic, 10)
-            self.pubs[n] = pub
-            self.create_timer(0.2, lambda nb=n: self.tick(nb))
-            
-        self.get_logger().info("Node " + str(self.node_id) + " started. Mem: " + str(__MEMORY_MB__) + "MB")
+            self.pubs[nb] = pub
+            # Lambda captures neighbor via default arg - classic Python trick
+            self.create_timer(0.2, lambda n=nb: self._tick(n))
+        
+        self.get_logger().info(f"Node {node_id} up (mem={memory_mb}MB, out={len(neighbors)})")
 
-    def tick(self, neighbor_id):
+    def _tick(self, neighbor_id: int):
         try:
-            self.pubs[neighbor_id].publish(self.payload)
+            self.pubs[neighbor_id].publish(self._payload)
         except Exception:
-            pass
+            pass  # Ignore publish errors - we're stress-testing, not production
 
-    def compute(self):
-        # Нагрузка на CPU
-        limit = int(5000 * __CPU_FACTOR__)
+    def _compute(self):
+        # Crude CPU load simulation - empirical factor, not scientifically accurate
+        limit = int(5000 * self.cpu_factor)
         for i in range(limit):
-            math.sin(i)
+            _ = math.sin(i)
 
 def main():
     rclpy.init()
-    node = LightWorkerNode()
+    node = LightWorkerNode(__NODE_ID__, __NEIGHBORS__, __MSG_SIZE__, __MEMORY_MB__, __CPU_FACTOR__)
     
     try:
         while rclpy.ok():
-            node.compute()
+            node._compute()
             rclpy.spin_once(node, timeout_sec=0.01)
     finally:
         node.destroy_node()
@@ -136,54 +143,83 @@ if __name__ == '__main__':
     main()
 '''
     
-    # Безопасная подстановка
-    script_content = template.replace('__NODE_ID__', str(node_id))
-    script_content = script_content.replace('__NEIGHBORS__', str(neighbors))
-    script_content = script_content.replace('__MSG_SIZE__', str(msg_size))
-    script_content = script_content.replace('__MEMORY_MB__', str(memory_mb))
-    script_content = script_content.replace('__CPU_FACTOR__', str(CPU_FACTOR))
-        
-    filename = f"light_node_{node_id}.py"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(script_content)
-    os.chmod(filename, 0o755)
-    return filename
+    # String replacement - not elegant but avoids template engine dependency
+    # TODO: switch to Jinja2 if we need more complex templating
+    return (template
+        .replace('__NODE_ID__', str(node_id))
+        .replace('__NEIGHBORS__', repr(neighbors))
+        .replace('__MSG_SIZE__', str(msg_size))
+        .replace('__MEMORY_MB__', str(memory_mb))
+        .replace('__CPU_FACTOR__', str(cpu_factor))
+    )
+
+
+def _find_ros_setup() -> str:
+    """Probe common ROS 2 install paths. Brittle but works on standard setups."""
+    for distro in ['jazzy', 'humble', 'iron', 'rolling']:
+        setup_path = f"/opt/ros/{distro}/setup.bash"
+        if pathlib.Path(setup_path).exists():
+            print(f"Found ROS 2: {distro}")
+            return setup_path
+    raise RuntimeError(
+        "ROS 2 not found. Install Humble/Jazzy: "
+        "https://docs.ros.org/en/jazzy/Installation.html"
+    )
+
 
 def launch_system():
+    """Generate graph, create node scripts, launch processes."""
+    
     edges = generate_test_graph()
     
-    adjacency = {i: [] for i in range(1, NUM_NODES + 1)}
-    for u, v in edges:
-        adjacency[u].append(v)
+    # Build adjacency list
+    adjacency: Dict[int, List[int]] = {i: [] for i in range(1, NUM_NODES + 1)}
+    for src, dst in edges:
+        adjacency[src].append(dst)
     
-    bw_per_edge = TARGET_BW_MBPS / len(edges) if edges else 1
+    # Split target BW across edges - naive but sufficient for testing
+    bw_per_edge = TARGET_BW_MBPS / len(edges) if edges else 1.0
+    msg_size = _calculate_msg_size(bw_per_edge)
+    
+    # Detect ROS once upfront
+    ros_setup = _find_ros_setup()
     
     processes = []
-    print(f" Запуск {NUM_NODES} нод...")
+    print(f"Launching {NUM_NODES} nodes...")
     
     for node_id, neighbors in adjacency.items():
-        mem_load = BASE_MEM_MB + random.randint(0, 10)
-        script = create_node_script(node_id, neighbors, bw_per_edge, mem_load)
+        mem_load = BASE_MEM_MB + random.randint(0, 10)  # Add noise
         
-        cmd = f"bash -c 'source /opt/ros/humble/setup.bash && python3 {script}'"
+        script = _build_node_script(node_id, neighbors, msg_size, mem_load, CPU_FACTOR)
+        filename = f"light_node_{node_id}.py"
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(script)
+        os.chmod(filename, 0o755)
+        
+        # Launch with ROS env - shell=True is ugly but necessary for sourcing setup.bash
+        cmd = f"bash -c 'source {ros_setup} && python3 {filename}'"
         proc = subprocess.Popen(cmd, shell=True, start_new_session=True)
         processes.append((node_id, proc))
-        print(f"   ✅ Нода {node_id} запущена (PID: {proc.pid})")
-        time.sleep(0.5)
+        print(f"  Node {node_id} started (PID {proc.pid})")
+        time.sleep(0.1)  # Avoid log spam from concurrent startups
     
-    print(f"\n✅ СИСТЕМА ЗАПУЩЕНА!")
-    print("💡 Проверьте: ros2 node list")
-    print("Нажмите Ctrl+C для остановки.\n")
+    print(f"\nLaunched: {NUM_NODES} nodes, {len(edges)} edges")
+    print("Verify: ros2 node list | grep light_worker")
+    print("Stop: Ctrl+C\n")
     
+    # Wait for all nodes
     try:
         for _, proc in processes:
             proc.wait()
     except KeyboardInterrupt:
-        print("\n🛑 Остановка системы...")
+        print("\nStopping...")
         for _, proc in processes:
             proc.terminate()
-        subprocess.run(['pkill', '-f', 'light_node_\\d+\\.py'], stdout=subprocess.DEVNULL)
-        print("Готово.")
+        # Kill stragglers - pkill is blunt but effective
+        subprocess.run(['pkill', '-f', 'light_node_\\d+\\.py'],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("Done.")
+
 
 if __name__ == "__main__":
     launch_system()

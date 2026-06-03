@@ -1,159 +1,88 @@
 #!/bin/bash
-# scripts/install.sh - Установка всех зависимостей для VMS Profiler
+# scripts/install.sh - Install VMS Profiler dependencies
 
-set -e  # Остановка при ошибке
+set -euo pipefail
 
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  VMS Profiler - Установка зависимостей                 ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
+echo "VMS Profiler - Dependency Installer"
 
-# Проверка ОС
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    echo "✅ Обнаружена Linux система"
-    DISTRO=$(cat /etc/os-release | grep "^ID=" | cut -d= -f2 | tr -d '"')
-    echo "📦 Дистрибутив: $DISTRO"
-else
-    echo "⚠️  Предупреждение: Скрипт предназначен для Linux"
-    echo "   На Windows используйте WSL или виртуальную машину"
+# Detect distro
+if [[ "$OSTYPE" != "linux-gnu"* ]]; then
+    echo "[WARN] This script is designed for Linux"
+    echo "Hint: Use WSL or a VM on Windows/macOS"
     exit 1
 fi
 
-# ═══════════════════════════════════════════════════════════════
-# 1. Обновление пакетов
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "🔄 Обновление списков пакетов..."
-sudo apt update || sudo yum update -y || sudo dnf update -y
+DISTRO=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+echo "[OK] Detected: $DISTRO"
 
-# ═══════════════════════════════════════════════════════════════
-# 2. Установка системных зависимостей
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "📦 Установка системных зависимостей..."
-
-case $DISTRO in
-    ubuntu|debian|linuxmint)
-        sudo apt install -y \
-            likwid \
-            net-tools \
-            iproute2 \
-            python3 \
-            python3-pip \
-            python3-venv \
-            curl \
-            wget \
-            git
-        ;;
-    centos|rhel|fedora)
-        sudo yum install -y \
-            likwid \
-            net-tools \
-            iproute \
-            python3 \
-            python3-pip \
-            curl \
-            wget \
-            git
-        ;;
-    *)
-        echo "⚠️  Неизвестный дистрибутив, попробуйте вручную:"
-        echo "   sudo apt install likwid python3-pip"
-        ;;
-esac
-
-# ═══════════════════════════════════════════════════════════════
-# 3. Настройка LIKWID
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "⚙️  Настройка LIKWID..."
-
-# Загрузка модуля MSR
-echo "📌 Загрузка модуля msr..."
-sudo modprobe msr
-
-# Автозагрузка модуля
-if ! grep -q "^msr$" /etc/modules-load.d/msr.conf 2>/dev/null; then
-    echo "msr" | sudo tee -a /etc/modules-load.d/msr.conf > /dev/null
-    echo "✅ Модуль msr добавлен в автозагрузку"
-else
-    echo "✅ Модуль msr уже в автозагрузке"
-fi
-
-# Проверка LIKWID
-echo "🔍 Проверка LIKWID..."
-if likwid-topology > /dev/null 2>&1; then
-    echo "✅ LIKWID работает корректно"
-    likwid-topology | head -5
-else
-    echo "❌ LIKWID не работает! Проверьте установку."
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# 4. Установка Python зависимостей
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "🐍 Установка Python зависимостей..."
-
-# Создание виртуального окружения (опционально)
-if [ ! -d "venv" ]; then
-    echo "📦 Создание виртуального окружения..."
-    python3 -m venv venv
-    echo "✅ Виртуальное окружение создано"
-fi
-
-# Активация и установка
-if [ -d "venv" ]; then
-    source venv/bin/activate
-    echo "📦 Активировано виртуальное окружение"
-fi
-
-pip3 install --upgrade pip
-pip3 install -r requirements.txt
-
-echo "✅ Python зависимости установлены"
-
-# ═══════════════════════════════════════════════════════════════
-# 5. Создание директорий
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "📁 Создание директорий..."
-
-mkdir -p output
-mkdir -p logs
-touch output/.gitkeep
-touch logs/.gitkeep
-
-echo "✅ Директории созданы"
-
-# ═══════════════════════════════════════════════════════════════
-# 6. Итоговая проверка
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  ПРОВЕРКА УСТАНОВКИ                                    ║"
-echo "╚════════════════════════════════════════════════════════╝"
-
-check_command() {
-    if command -v $1 > /dev/null 2>&1; then
-        echo "✅ $1: $(command -v $1)"
-    else
-        echo "❌ $1: НЕ НАЙДЕН"
-    fi
+# Package manager helper
+install_packages() {
+    case $DISTRO in
+        ubuntu|debian|linuxmint)
+            sudo apt update -qq
+            sudo apt install -y "$@"
+            ;;
+        centos|rhel|fedora)
+            sudo dnf update -y -q || sudo yum update -y -q
+            sudo dnf install -y "$@" || sudo yum install -y "$@"
+            ;;
+        *)
+            echo "[WARN] Unknown distro, trying apt..."
+            sudo apt update -qq && sudo apt install -y "$@" || true
+            ;;
+    esac
 }
 
-check_command python3
-check_command pip3
-check_command likwid-topology
-check_command curl
+# System dependencies
+echo "Installing system packages..."
+install_packages \
+    likwid net-tools iproute2 python3 python3-pip python3-venv curl wget git
+
+# LIKWID setup
+echo "Configuring LIKWID..."
+sudo modprobe msr 2>/dev/null || true
+
+# Persist msr module across reboots
+if [ ! -f /etc/modules-load.d/msr.conf ] || ! grep -q "^msr$" /etc/modules-load.d/msr.conf 2>/dev/null; then
+    echo "msr" | sudo tee -a /etc/modules-load.d/msr.conf > /dev/null
+    echo "[OK] msr module added to auto-load"
+fi
+
+# Verify LIKWID
+if likwid-topology &>/dev/null; then
+    echo "[OK] LIKWID working"
+else
+    echo "[WARN] LIKWID check failed - verify installation"
+fi
+
+# Python dependencies
+echo "Setting up Python environment..."
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+    echo "[OK] Virtual environment created"
+fi
+
+source venv/bin/activate
+pip install --upgrade pip -q
+pip install -r requirements.txt -q
+echo "[OK] Python dependencies installed"
+
+# Create directories
+mkdir -p output logs
+touch output/.gitkeep logs/.gitkeep
+echo "[OK] Directories ready"
+
+# Final verification
+echo ""
+echo "Dependency check:"
+for cmd in python3 pip3 likwid-topology curl; do
+    if command -v "$cmd" &>/dev/null; then
+        echo "[OK] $cmd"
+    else
+        echo "[FAIL] $cmd not found"
+    fi
+done
 
 echo ""
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  ✅ УСТАНОВКА ЗАВЕРШЕНА!                               ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-echo "📋 Следующие шаги:"
-echo "   1. На центральном узле: ./scripts/start_collector.sh"
-echo "   2. На вычислительных узлах: ./scripts/start_agent.sh"
-echo "   3. Для отчёта: ./scripts/generate_report.sh"
-echo ""
+echo "[OK] Installation complete"
+echo "Next: ./scripts/start_collector.sh (central node) or ./scripts/start_agent.sh (worker)"

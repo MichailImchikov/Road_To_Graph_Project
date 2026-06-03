@@ -1,127 +1,58 @@
 #!/bin/bash
-# scripts/start_agent.sh - Запуск агента профилирования на узле
+# scripts/start_agent.sh - Launch profiling agent and network monitor
 
-set -e
+set -euo pipefail
 
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  VMS Profiler - Запуск агента на узле                  ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Конфигурация
-# ═══════════════════════════════════════════════════════════════
+# Configuration
 NODE_ID="${NODE_ID:-node-$(hostname)}"
 COLLECTOR_HOST="${COLLECTOR_HOST:-localhost}"
 COLLECTOR_PORT="${COLLECTOR_PORT:-8080}"
 LOG_FILE_AGENT="${LOG_FILE_AGENT:-logs/agent.log}"
 LOG_FILE_NETWORK="${LOG_FILE_NETWORK:-logs/network_monitor.log}"
 
-# ═══════════════════════════════════════════════════════════════
-# Проверки
-# ═══════════════════════════════════════════════════════════════
-echo "🔍 Проверка зависимостей..."
+echo "VMS Profiler - Agent Launcher"
+echo "Node: $NODE_ID | Collector: $COLLECTOR_HOST:$COLLECTOR_PORT"
 
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python3 не найден!"
+# Check dependencies
+command -v python3 &>/dev/null || { echo "[FAIL] python3 not found"; exit 1; }
+command -v likwid-topology &>/dev/null || echo "[WARN] LIKWID not found"
+command -v tshark &>/dev/null || echo "[WARN] tshark not found"
+
+# Load MSR module if needed
+lsmod | grep -q msr || sudo modprobe msr 2>/dev/null || true
+
+# Setup dirs and environment
+mkdir -p logs output
+export NODE_ID COLLECTOR_HOST COLLECTOR_PORT
+
+# Prevent duplicate runs
+if pgrep -f "agent\.py" > /dev/null 2>&1; then
+    echo "[WARN] Agent already running"
     exit 1
 fi
 
-if ! command -v likwid-topology &> /dev/null; then
-    echo "⚠️  LIKWID не найден! Некоторые метрики будут недоступны"
-fi
-
-if ! command -v tshark &> /dev/null; then
-    echo "⚠️  tshark не найден! Сетевой мониторинг будет ограничен"
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# Настройка LIKWID
-# ═══════════════════════════════════════════════════════════════
-echo ""
-echo "⚙️  Настройка LIKWID..."
-
-# Загрузка модуля MSR (требует sudo)
-if ! lsmod | grep -q msr; then
-    echo "📌 Загрузка модуля msr..."
-    sudo modprobe msr || echo "⚠️  Не удалось загрузить msr (требуется sudo)"
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# Создание директорий
-# ═══════════════════════════════════════════════════════════════
-mkdir -p logs
-mkdir -p output
-
-# ═══════════════════════════════════════════════════════════════
-# Экспорт переменных окружения
-# ═══════════════════════════════════════════════════════════════
-export NODE_ID
-export COLLECTOR_HOST
-export COLLECTOR_PORT
-
-echo "📋 Конфигурация:"
-echo "   Node ID:        $NODE_ID"
-echo "   Collector Host: $COLLECTOR_HOST"
-echo "   Collector Port: $COLLECTOR_PORT"
-echo "   Лог агента:     $LOG_FILE_AGENT"
-echo "   Лог сети:       $LOG_FILE_NETWORK"
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Проверка на уже запущенные процессы
-# ═══════════════════════════════════════════════════════════════
-if pgrep -f "agent.py" > /dev/null; then
-    echo "⚠️  Агент уже запущен!"
-    echo "   Остановить: ./scripts/stop_all.sh"
-    exit 1
-fi
-
-if pgrep -f "network_monitor.py" > /dev/null; then
-    echo "⚠️  Network monitor уже запущен!"
-fi
-
-# ═══════════════════════════════════════════════════════════════
-# Запуск
-# ═══════════════════════════════════════════════════════════════
-echo "🚀 Запуск agent.py..."
+# Launch processes
+echo "Starting agent..."
 nohup python3 agent/agent.py > "$LOG_FILE_AGENT" 2>&1 &
 AGENT_PID=$!
-echo "✅ Агент запущен (PID: $AGENT_PID)"
 
-echo "🚀 Запуск network_monitor.py..."
+echo "Starting network monitor..."
 nohup python3 agent/network_monitor.py > "$LOG_FILE_NETWORK" 2>&1 &
 NETWORK_PID=$!
-echo "✅ Network monitor запущен (PID: $NETWORK_PID)"
 
-echo ""
-
-# ═══════════════════════════════════════════════════════════════
-# Проверка запуска
-# ═══════════════════════════════════════════════════════════════
+# Verify launch
 sleep 2
-
-echo "🔍 Проверка процессов..."
-if ps -p $AGENT_PID > /dev/null; then
-    echo "✅ Агент работает"
+if kill -0 $AGENT_PID 2>/dev/null; then
+    echo "[OK] Agent running (PID $AGENT_PID)"
 else
-    echo "❌ Агент не запустился! Проверьте лог: $LOG_FILE_AGENT"
+    echo "[FAIL] Agent failed. Check $LOG_FILE_AGENT"
+    exit 1
 fi
 
-if ps -p $NETWORK_PID > /dev/null; then
-    echo "✅ Network monitor работает"
+if kill -0 $NETWORK_PID 2>/dev/null; then
+    echo "[OK] Network monitor running (PID $NETWORK_PID)"
 else
-    echo "❌ Network monitor не запустился! Проверьте лог: $LOG_FILE_NETWORK"
+    echo "[WARN] Network monitor failed. Check $LOG_FILE_NETWORK"
 fi
 
-echo ""
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║  ✅ АГЕНТ ЗАПУЩЕН И ГОТОВ К РАБОТЕ!                    ║"
-echo "╚════════════════════════════════════════════════════════╝"
-echo ""
-echo "📋 Полезные команды:"
-echo "   Лог агента:  tail -f $LOG_FILE_AGENT"
-echo "   Лог сети:    tail -f $LOG_FILE_NETWORK"
-echo "   Остановить:  ./scripts/stop_all.sh"
-echo "   Статус:      ps aux | grep -E 'agent|network'"
-echo ""
+echo "[OK] Ready. Logs: $LOG_FILE_AGENT, $LOG_FILE_NETWORK"

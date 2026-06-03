@@ -156,7 +156,7 @@ def print_results(result):
 
 
 if __name__ == "__main__":
-    FILE_PATH = "Пример_файла.json"
+    FILE_PATH = "report_20260527_131829.json"
 
     try:
         print(" Чтение и обработка данных...")
